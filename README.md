@@ -44,7 +44,7 @@ For instructions, follow the [Compiling Guide](https://github.com/danssmnt/CTW-C
 ## How to Use
 
  1. Play up to the mission "The Wheelman", which unlocks the car dealer.
- 2. Press and hold <img src="./pictures/ButtonL.webp" alt="L" style="height: 15px;"/> and <img src="./pictures/ButtonUp.webp" alt="L" style="height: 20px;"/> to open the menu.
+ 2. Press and hold <img src="./pictures/ButtonL.webp" alt="L" style="height: 15px;"/> and <img src="./pictures/ButtonUp.webp" alt="UP" style="height: 20px;"/> to open the menu.
  3. Select the vehicle you want to drive.
  4. Visit the **Car Dealers Garage**, north of the Gas Station in **BOABO**, where now your vehicle will now be. (Replacing the other vehicles there to buy).
 
