@@ -3,9 +3,9 @@
 </div>
 
 <div align="center">
-    <img src="./pictures/CTW CD Menu.webp" alt="CTW CD Menu" style="height: 272px;"/>
-    <img src="./pictures/CTW CD BOABO Garage.webp" alt="CTW CD BOABO Garage" style="height: 272px;"/>
-    <img src="./pictures/CTW CD Flying Heli.webp" alt="CTW CD Flying Heli" style="height: 272px;"/>
+    <img src="./pictures/CTW CD Menu.webp" alt="CTW CD Menu" style="height: 150px;"/>
+    <img src="./pictures/CTW CD BOABO Garage.webp" alt="CTW CD BOABO Garage" style="height: 150px;"/>
+    <img src="./pictures/CTW CD Flying Heli.webp" alt="CTW CD Flying Heli" style="height: 150px;"/>
 </div>
 
 ---
