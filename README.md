@@ -84,7 +84,7 @@ Refer to [Contributing to the Project](.github/CONTRIBUTING.md).
 ---
 
 ## Future Checklist
- - [X] Plugin is "identical" to original (aside from byte / instruction matching)
+ - [X] Plugin is works exactly the same to the original (aside from byte / instruction matching)
  - [ ] Clean Ghidra's output (aka. actually make the code readable lol)
  - [ ] Find the compiler **_qwikrazor87_** used for the original plugin
  - [ ] 100% Instruction matching the original

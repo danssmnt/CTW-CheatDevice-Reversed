@@ -161,7 +161,7 @@ int ctw_was_found;
  * DAT_00001B08
  * REV: Check if sceKernelLibrary is present?
  */
-int sceKernelLib_started;
+int search_ctw;
 
 /*
  * DAT_00001B0C
@@ -196,9 +196,9 @@ char* vehicle_types[106];
 
 /*
  * DAT_00001CC4
- * REV: Unknown
+ * REV: Points to game code, patches when cheat is enabled / disabled.
  */
-int PTR_00001cc4;
+int* PTR_00001cc4;
 
 /*
  * DAT_00001CC8
@@ -226,22 +226,23 @@ char* vehicle_names[106];
 
 /*
  * DAT_00001F90
- * REV: Unknown? (It's used for copying stuff to mem, but what then?)
+ * REV: Array made of instructions to be copied to mem later
+ *      qwikrazor87 really did it manually, wow...
  */
-int array_data[0x80];
+int custom_code_arr[0x80];
 
 /*
  * FUN_00000208
  * REV: Plugin's main thread, where almost everything happens :D
  *       (Also put here for module_start)
  */
-int main_thread(SceSize args, void *argp);
+int main_thread(SceSize args, void* argp);
 
 /*
  * FUN_00000000
  * REV: Runs when plugin needs to exit, referenced in exports.exp
  */
-int module_stop(SceSize args, void *argp)
+int module_stop(SceSize args, void* argp)
 {
   return 0;
 }
@@ -250,14 +251,12 @@ int module_stop(SceSize args, void *argp)
  * FUN_00000008
  * REV: Start of the plugin, referenced in exports.exp
  */
-int module_start(SceSize args, void *argp)
+int module_start(SceSize args, void* argp)
 {
-  SceUID thid;
-
-  thid = sceKernelCreateThread("ctwcheatdevice",main_thread,0x22,0x4000,0,NULL);
+  SceUID thid = sceKernelCreateThread("ctwcheatdevice", main_thread, 0x22, 0x4000, 0, NULL);
 
   if (thid >= 0) {
-    sceKernelStartThread(thid,args,argp);
+    sceKernelStartThread(thid, args, argp);
   }
 
   return 0;
@@ -267,63 +266,64 @@ int module_start(SceSize args, void *argp)
  * FUN_00000070
  * REV: Module handler
  */
-int module_start_handler(SceModule2 *module)
+int module_start_handler(SceModule2* module)
 {
   int ret;
-  int strcmp_ret;
 
-  if (previous == NULL) {
+  if (!previous) {
     ret = 0;
   }
   else {
     ret = (*previous)(module);
   }
-  if (sceKernelLib_started != 0) {
-    sceKernelLib_started = 0;
-    strcmp_ret = strcmp(module->modname,"CTW");
-    if (strcmp_ret == 0) {
+
+  if (search_ctw) {
+    search_ctw = 0;
+
+    if ( !strcmp(module->modname, "CTW") ) {
       ctw_was_found = 1;
     }
     else {
-      ctw_was_found = 0xffffffff;
+      ctw_was_found = -1;
     }
   }
-  strcmp_ret = strcmp(module->modname,"sceKernelLibrary");
-  if (strcmp_ret == 0) {
-    sceKernelLib_started = 1;
+
+  if ( !strcmp(module->modname, "sceKernelLibrary") ) {
+    search_ctw = 1;
   }
+
   return ret;
 }
 
 /*
  * FUN_00000128
  * REV: Resumes game's threads after suspending them.
- *       Doesn't work on PPSSPP (addresses for thread ids are different there).
+ *      Doesn't work on PPSSPP (addresses for thread ids are different there).
  */
 void resume_ctw_threads(void)
 {
-  sceKernelResumeThread(*(SceUID*)(0x09fe7000));
-  sceKernelResumeThread(*(SceUID*)(0x09fd5c00));
-  sceKernelResumeThread(*(SceUID*)(0x09fd6400));
-  sceKernelResumeThread(*(SceUID*)(0x09fd6800));
-  sceKernelResumeThread(*(SceUID*)(0x09fef000));
-  sceKernelResumeThread(*(SceUID*)(0x09ff0000));
+  sceKernelResumeThread(*(SceUID *)(0x09fe7000));
+  sceKernelResumeThread(*(SceUID *)(0x09fd5c00));
+  sceKernelResumeThread(*(SceUID *)(0x09fd6400));
+  sceKernelResumeThread(*(SceUID *)(0x09fd6800));
+  sceKernelResumeThread(*(SceUID *)(0x09fef000));
+  sceKernelResumeThread(*(SceUID *)(0x09ff0000));
   return;
 }
 
 /*
  * FUN_00000198
  * REV: Suspends game's threads to allow for drawing on to screen (and pausing the game)
- *       Doesn't work on PPSSPP (addresses for thread ids are different there).
+ *      Doesn't work on PPSSPP (addresses for thread ids are different there).
  */
 void suspend_ctw_threads(void)
 {
-  sceKernelSuspendThread(*(SceUID*)(0x09ff0000));
-  sceKernelSuspendThread(*(SceUID*)(0x09fef000));
-  sceKernelSuspendThread(*(SceUID*)(0x09fd6800));
-  sceKernelSuspendThread(*(SceUID*)(0x09fd6400));
-  sceKernelSuspendThread(*(SceUID*)(0x09fd5c00));
-  sceKernelSuspendThread(*(SceUID*)(0x09fe7000));
+  sceKernelSuspendThread(*(SceUID *)(0x09ff0000));
+  sceKernelSuspendThread(*(SceUID *)(0x09fef000));
+  sceKernelSuspendThread(*(SceUID *)(0x09fd6800));
+  sceKernelSuspendThread(*(SceUID *)(0x09fd6400));
+  sceKernelSuspendThread(*(SceUID *)(0x09fd5c00));
+  sceKernelSuspendThread(*(SceUID *)(0x09fe7000));
   return;
 }
 
@@ -331,32 +331,27 @@ void suspend_ctw_threads(void)
  * FUN_00000208
  * REV: Plugin's main thread, where almost everything happens :D
  */
-int main_thread(SceSize args, void *argp)
+int main_thread(SceSize args, void* argp)
 {
   void *gameinfo;
-  int ctw_eu_ver;
   SceUID fd;
   SceSize filesize;
   SceUID blockid;
   void *blockaddr;
-  int strcmp_ini;
-  char *pcVar1;
-  int ctw_us_ver;
   int uVar2;
   int uVar3;
   int uVar4;
   int *puVar5;
-  int *array_ptr;
+  int *custom_code_arr_ptr;
   int filebyte_counter;
   char *vehicle_name;
   char *vehicle_type;
   int counter_types;
   int counter_names;
-  int offset;
 
   previous = sctrlHENSetStartModuleHandler((STMOD_HANDLER)module_start_handler);
 
-  while (ctw_was_found == 0) {
+  while ( !ctw_was_found ) {
     sceKernelDelayThread(0);
   }
 
@@ -364,79 +359,76 @@ int main_thread(SceSize args, void *argp)
   gameinfo = sceKernelGetGameInfo();
   strcpy(ctw_titleid, (char*)(gameinfo + 0x44));
 
-  /* REV: Clean Data Array */
-  memset(array_data, 0, 0x80);
-  array_ptr = &array_data[0];
+  /* REV: Clear garbage from array... */
+  memset(custom_code_arr, 0, 0x80);
+  custom_code_arr_ptr = &custom_code_arr[0];
 
-  /* REV: Did qwikrazor87 write instructions manually? Or is this ghidra's fault? */
-  array_data[6]     = 0x105f0007;
-  array_data[2]     = 0x105f000b;
-  array_data[0xc]   = 0x10000003;
-  array_data[0xe]   = 0x3c020880;
-  array_data[0x11]  = 0xa08821;
-  array_data[10]    = 0x105f0003;
-  array_data[0xf]   = 0x8c450f00;
+  /* REV: Write instructions to code array. */
+  custom_code_arr[6]     = 0x105f0007;
+  custom_code_arr[2]     = 0x105f000b;
+  custom_code_arr[0xc]   = 0x10000003;
+  custom_code_arr[0xe]   = 0x3c020880;
+  custom_code_arr[0x11]  = 0x00a08821;
+  custom_code_arr[10]    = 0x105f0003;
+  custom_code_arr[0xf]   = 0x8c450f00;
 
   /* 
    * REV: Check Game Version (EU or US)
-   * Also there's references to unknown addresses in ram...
-   * What do these do?
+   *      Also there's references to some addresses in RAM...
+   *      What are these even setting?
    */
-  ctw_eu_ver = strcmp(ctw_titleid, "ULES01347");
 
-  if (ctw_eu_ver == 0) {
-    *(int *)(0x08a43504) = 0xa200400;
-    array_data[5]     = 0x34428c14;
-    array_data[1]     = 0x3442dbd8;
-    array_data[9]     = 0x34429c44;
-    array_data[0x10]  = 0xa290d43;
-    PTR_00001cc4      = *(int*)(0x08a43504);
+  if ( !strcmp(ctw_titleid, "ULES01347") ) {
+    *(int *)(0x08a43504)    = 0x0a200400;
+    custom_code_arr[5]      = 0x34428c14;
+    custom_code_arr[1]      = 0x3442dbd8;
+    custom_code_arr[9]      = 0x34429c44;
+    custom_code_arr[0x10]   = 0x0a290d43;
+    PTR_00001cc4            = (int *)(0x08a43504);
   }
   else {
-    ctw_us_ver = strcmp(ctw_titleid, "ULUS10490");
-
-    if (ctw_us_ver != 0) {
+    /* REV: If TitleID is not ULES01347 nor ULUS10490, abort! */
+    if ( strcmp(ctw_titleid, "ULUS10490") ) {
       return 0;
     }
 
-    *(int *)(0x08a43450) = 0xa200400;
-    array_data[5]     = 0x34428b14;
-    array_data[1]     = 0x3442db24;
-    array_data[9]     = 0x34429b44;
-    array_data[0x10]  = 0xa290d16;
-    PTR_00001cc4 =     *(int *)(0x08a43450);
+    *(int *)(0x08a43450)    = 0x0a200400;
+    custom_code_arr[5]      = 0x34428b14;
+    custom_code_arr[1]      = 0x3442db24;
+    custom_code_arr[9]      = 0x34429b44;
+    custom_code_arr[0x10]   = 0x0a290d16;
+    PTR_00001cc4            = (int *)(0x08a43450);
   }
-  array_data[8] = 0x3c0208b8;
-  array_data[4] = 0x3c0208b8;
-  array_data[0] = 0x3c0208a1;
-  offset = 0;
+  custom_code_arr[8] = 0x3c0208b8;
+  custom_code_arr[4] = 0x3c0208b8;
+  custom_code_arr[0] = 0x3c0208a1;
 
   /* 
    * REV: Copy array_data to 0x08801000, it must patch some function? 
-   * because the user_main thread is not created anymore (preventing it from crashing)...
+   *      because the user_main thread is not created anymore (preventing it from crashing)...
    */
   puVar5 = (int *)(0x08801000);
   do {
-    uVar2     = array_ptr[1];
-    uVar3     = array_ptr[2];
-    uVar4     = array_ptr[3];
-    *puVar5   = *array_ptr;
+    uVar2     = custom_code_arr_ptr[1];
+    uVar3     = custom_code_arr_ptr[2];
+    uVar4     = custom_code_arr_ptr[3];
+    *puVar5   = *custom_code_arr_ptr;
     puVar5[1] = uVar2;
     puVar5[2] = uVar3;
-    array_ptr = array_ptr + 4;
+    custom_code_arr_ptr += 4;
     puVar5[3] = uVar4;
-    puVar5    = puVar5 + 4;
-  } while (array_ptr != (array_data + 0x80));
+    puVar5    += 4;
+  } while (custom_code_arr_ptr != &custom_code_arr[0x80]);
 
-  /* REV: Clear Cache so that change above actually works...*/
+  /* REV: Clear Cache so that the change to mem above actually works...*/
   ClearCaches();
 
   /* REV: Read ctwvehicles.txt */
   fd = sceIoOpen("ms0:/seplugins/ctw/ctwvehicles.txt", PSP_O_RDONLY, 511);
 
   /* REV: Get File Size to alloc partition */
-  filesize = sceIoLseek32(fd,0,SEEK_END);
-  sceIoLseek(fd,0,SEEK_SET);
+  filesize = sceIoLseek32(fd, 0, SEEK_END);
+  sceIoLseek(fd, 0, SEEK_SET);
 
   blockid = sceKernelAllocPartitionMemory(PSP_MEMORY_PARTITION_KERNEL,"block",PSP_SMEM_Low,filesize,NULL);
 
@@ -446,52 +438,72 @@ int main_thread(SceSize args, void *argp)
 
   *(char *)(blockaddr + filesize) = '\n';
 
+  /* 
+   * REV: This is a mistake by qwikrazor87. It should be '2'.
+   *      Either that or the car selected when you
+   *      open the menu for first time should be the Admiral
+   *      not the Blista. (counter_types should be 0)
+   */
   entry_num[0] = '1';
 
-  /* REV: Read Data From Partition */
-  if (0 < (int)filesize) {
+  /* 
+   * REV: Read Data From Partition 
+   *      The compiler made a mess here
+   *      And Ghidra can't help of course
+   */
+  if (filesize > 0) {
+
     filebyte_counter = 0;
     counter_names = 0;
     counter_types = 0;
+
     do {
       while( 1 ) {
         filebyte_counter = filebyte_counter + 1;
-        strcmp_ini = strncmp(blockaddr,"#name",5);
-        if (strcmp_ini != 0) break;
+
+        if ( strncmp(blockaddr, "#name", 5) ) break;
+
         vehicle_name = (char *)(blockaddr + 5);
-        pcVar1 = trim_whitespace(vehicle_name);
-        vehicle_names[counter_names] = pcVar1;
-        counter_names = counter_names + 1;
-        strcmp_ini = strncmp(vehicle_name,"#type",5);
-        if (strcmp_ini != 0) goto LAB_00000494;
+        vehicle_names[counter_names] = trim_whitespace(vehicle_name);
+        counter_names++;
+
+        if ( strncmp(vehicle_name, "#type", 5) ) goto LAB_00000494;
+
         vehicle_type = (char *)(blockaddr + 10);
 LAB_000004f0:
-        pcVar1 = trim_whitespace(vehicle_type);
-        vehicle_types[counter_types] = pcVar1;
-        counter_types = counter_types + 1;
+        vehicle_types[counter_types] = trim_whitespace(vehicle_type);
+        counter_types++;
         blockaddr = vehicle_type + 1;
-        if ((int)filesize <= filebyte_counter) goto LAB_00000514;
+
+        if (filesize <= filebyte_counter) goto LAB_00000514;
       }
-      strcmp_ini = strncmp(blockaddr,"#type",5);
+
       vehicle_name = (char *)blockaddr;
-      if (strcmp_ini == 0) {
+
+      if ( !strncmp(blockaddr, "#type", 5) ) {
         vehicle_type = (char *)(blockaddr + 5);
         goto LAB_000004f0;
       }
 LAB_00000494:
       blockaddr = vehicle_name + 1;
-    } while (filebyte_counter < (int)filesize);
+    } while (filebyte_counter < filesize);
   }
 LAB_00000514:
-  if (ctw_was_found < 1) {
+  /* REV: Why is this checking again? */
+  if (!ctw_was_found) {
     return 0;
   }
 
-  /* Main Loop */
+  /* 
+   * REV: Well, as explained earlier, if this is 1, then entry_num should've been '2'.
+   *      (Or if entry_num == '1' then this should've been 0...)
+   */
   counter_types = 1;
+
+  /* REV: Main Loop */
   do {
-    sceCtrlReadBufferPositive(&pad,1);
-    if (menu_displaying == 0) {
+    sceCtrlReadBufferPositive(&pad, 1);
+    if ( !menu_displaying ) {
       if ((pad.Buttons & (PSP_CTRL_LTRIGGER | PSP_CTRL_UP)) == (PSP_CTRL_LTRIGGER | PSP_CTRL_UP)) {
         L_up_time_pressed++;
       }
@@ -502,28 +514,27 @@ LAB_00000514:
     else {
       L_up_time_pressed = 0;
       do {
-        sceCtrlReadBufferPositive(&pad,1);
-        psp_printf(0,0,"Grand Theft Auto: Chinatown Wars\nCheat Device Menu",0xff0000);
+        sceCtrlReadBufferPositive(&pad, 1);
+        psp_printf(0, 0, "Grand Theft Auto: Chinatown Wars\nCheat Device Menu", 0xff0000);
 
-        psp_printf(0,48,"Name:",0xffffff);
-        psp_printf(0,64,vehicle_names[counter_types],0xff00);
+        psp_printf(0, 48, "Name:", 0xffffff);
+        psp_printf(0, 64, vehicle_names[counter_types], 0x00ff00);
 
-        psp_printf(0,80,"Vehicle type:",0xffffff);
-        psp_printf(0,96,vehicle_types[counter_types],0xff00);
+        psp_printf(0, 80, "Vehicle type:", 0xffffff);
+        psp_printf(0, 96, vehicle_types[counter_types], 0x00ff00);
 
-        psp_printf(0,112,"Entry:",0xffffff);
-        psp_printf(0,128,entry_num,0xff00);
+        psp_printf(0, 112, "Entry:", 0xffffff);
+        psp_printf(0, 128, entry_num, 0x00ff00);
 
-        psp_printf(407,255,ctw_titleid,0xffffff);
-        psp_printf(0,144,"Cheat:",0xffffff);
+        psp_printf(407, 255, ctw_titleid, 0xffffff);
+        psp_printf(0, 144, "Cheat:", 0xffffff);
 
-        pcVar1 = cheat_state ? "Enabled" : "Disabled";
-        psp_printf(0,160,pcVar1,0xff00);
+        psp_printf(0, 160, cheat_state ? "Enabled" : "Disabled", 0x00ff00);
 
-        psp_printf(0,207,"Up/Down: scroll by one",0x808080);
-        psp_printf(0,223,"Left/Right: scroll by ten",0x808080);
-        psp_printf(0,239,"Start: enable/disable cheat",0x808080);
-        psp_printf(0,255,"Select: resume game",0x808080);
+        psp_printf(0, 207, "Up/Down: scroll by one", 0x808080);
+        psp_printf(0, 223, "Left/Right: scroll by ten", 0x808080);
+        psp_printf(0, 239, "Start: enable/disable cheat", 0x808080);
+        psp_printf(0, 255, "Select: resume game", 0x808080);
 
         sceKernelDelayThread(100);
 
@@ -532,33 +543,33 @@ LAB_00000514:
             if ((pad.Buttons & PSP_CTRL_DOWN) == 0) {
               if ((pad.Buttons & PSP_CTRL_UP) == 0) {
                 if ((pad.Buttons & PSP_CTRL_LEFT) != 0) {
-                  ClearFrameBuf(0);
+                  ClearFrameBuf(0x000000);
                   counter_types -= 10;
                   if (counter_types < 0) goto LAB_00000848;
                   goto LAB_000007e8;
                 }
                 if ((pad.Buttons & PSP_CTRL_RIGHT) == 0) {
                   if ((pad.Buttons & PSP_CTRL_START) != 0) {
-                    ClearFrameBuf(0);
+                    ClearFrameBuf(0x000000);
 
                     /* REV: What does this even do? */
-                    if (cheat_state == 1) {
+                    if (cheat_state) {
                       cheat_state = 0;
-                      **(int **)(&PTR_00001cc4 + offset) = 0xa08825;
+                      **(int **)(&PTR_00001cc4) = 0xa08825;
                     }
                     else {
                       cheat_state = 1;
-                      **(int **)(&PTR_00001cc4 + offset) = 0xa200400;
+                      **(int **)(&PTR_00001cc4) = 0xa200400;
                     }
                     ClearCaches();
                   }
                   goto LAB_000005e4;
                 }
-                ClearFrameBuf(0);
+                ClearFrameBuf(0x000000);
                 counter_types += 10;
               }
               else {
-                ClearFrameBuf(0);
+                ClearFrameBuf(0x000000);
                 counter_types++;
               }
               if (counter_types < 106) {
@@ -571,7 +582,7 @@ LAB_000007e8:
               }
             }
             else {
-              ClearFrameBuf(0);
+              ClearFrameBuf(0x000000);
               counter_types--;
               if (counter_types >= 0) goto LAB_000007e8;
 LAB_00000848:
@@ -581,24 +592,26 @@ LAB_00000848:
             old_buttons = pad.Buttons;
             *(int *)(0x08800f00) = counter_types;
             ClearCaches();
-            sprintf(entry_num,"%d",counter_names);
+            sprintf(entry_num, "%d", counter_names);
           }
         }
         else {
           /* REV: Close Menu */
           do {
-            sceCtrlReadBufferPositive(&pad,1);
+            sceCtrlReadBufferPositive(&pad, 1);
           } while ((pad.Buttons & PSP_CTRL_SELECT) != 0);
           menu_displaying = 0;
           resume_ctw_threads();
         }
 LAB_000005e4:
         old_buttons = pad.Buttons;
-      } while (menu_displaying != 0);
+      } while (menu_displaying);
     }
     if (L_up_time_pressed < 101) {
       sceKernelDelayThread(100);
-      if (ctw_was_found < 1) {
+
+      /* REV: Why is this checking again? */
+      if (!ctw_was_found) {
         return 0;
       }
     }
@@ -606,14 +619,18 @@ LAB_000005e4:
     else {
       suspend_ctw_threads();
       sceKernelDelayThread(250000);
-      sceDisplaySetFrameBuf((void *)(VRAM),0x200,PSP_DISPLAY_PIXEL_FORMAT_8888,PSP_DISPLAY_SETBUF_NEXTFRAME);
+      sceDisplaySetFrameBuf((void *)(VRAM), 0x200, PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
       menu_displaying = 1;
-      ClearFrameBuf(0);
-      do {
-        sceCtrlReadBufferPositive(&pad,1);
-      } while ((pad.Buttons & PSP_CTRL_UP) != 0);
+      ClearFrameBuf(0x000000);
+
+      while ((pad.Buttons & PSP_CTRL_UP) != 0) {
+        sceCtrlReadBufferPositive(&pad, 1);
+      }
+
       sceKernelDelayThread(100);
-      if (ctw_was_found < 1) {
+      
+      /* REV: Why is this checking again? */
+      if (!ctw_was_found) {
         return 0;
       }
     }
@@ -626,21 +643,9 @@ LAB_000005e4:
  */
 void __attribute__((used)) UNUSED_00000A5C_WriteLog(char *string)
 {
-  SceUID fd = sceIoOpen("ms0:/logger.txt",PSP_O_WRONLY | PSP_O_CREAT | PSP_O_APPEND,511);
+  SceUID fd = sceIoOpen("ms0:/logger.txt", PSP_O_WRONLY | PSP_O_CREAT | PSP_O_APPEND, 511);
 
-  sceIoWrite(fd,string,strlen(string));
+  sceIoWrite(fd, string, strlen(string));
   sceIoClose(fd);
   return;
-}
-
-/*
- * UndefinedFunction_00000AB8
- * REV: UNUSED FUNCTION - Unknown
- */
-int __attribute__((used)) UNUSED_00000AB8_Unknown(int param_1)
-{
-  if (0x1BFFFFF < param_1 + 0xF7C00000U) {
-    return param_1 + 0x78000000U < 0x2000000;
-  }
-  return 1;
 }
