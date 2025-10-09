@@ -229,7 +229,7 @@ char* vehicle_names[106];
  * REV: Array made of instructions to be copied to mem later
  *      qwikrazor87 really did it manually, wow...
  */
-int custom_code_arr[0x80];
+int inject_code[128];
 
 /*
  * FUN_00000208
@@ -302,12 +302,12 @@ int module_start_handler(SceModule2* module)
  */
 void resume_ctw_threads(void)
 {
-  sceKernelResumeThread(*(SceUID *)(0x09fe7000));
-  sceKernelResumeThread(*(SceUID *)(0x09fd5c00));
-  sceKernelResumeThread(*(SceUID *)(0x09fd6400));
-  sceKernelResumeThread(*(SceUID *)(0x09fd6800));
-  sceKernelResumeThread(*(SceUID *)(0x09fef000));
-  sceKernelResumeThread(*(SceUID *)(0x09ff0000));
+  sceKernelResumeThread(*(SceUID *)(0x09FE7000)); /* 'mix sound thread'         */
+  sceKernelResumeThread(*(SceUID *)(0x09FD5C00)); /* 'sfx bank loading thread'  */
+  sceKernelResumeThread(*(SceUID *)(0x09FD6400)); /* 'overlayloader'            */
+  sceKernelResumeThread(*(SceUID *)(0x09FD6800)); /* 'ResourceManager'          */
+  sceKernelResumeThread(*(SceUID *)(0x09FEF000)); /* 'SysManager'               */
+  sceKernelResumeThread(*(SceUID *)(0x09FF0000)); /* 'threadmain'               */
   return;
 }
 
@@ -318,12 +318,12 @@ void resume_ctw_threads(void)
  */
 void suspend_ctw_threads(void)
 {
-  sceKernelSuspendThread(*(SceUID *)(0x09ff0000));
-  sceKernelSuspendThread(*(SceUID *)(0x09fef000));
-  sceKernelSuspendThread(*(SceUID *)(0x09fd6800));
-  sceKernelSuspendThread(*(SceUID *)(0x09fd6400));
-  sceKernelSuspendThread(*(SceUID *)(0x09fd5c00));
-  sceKernelSuspendThread(*(SceUID *)(0x09fe7000));
+  sceKernelSuspendThread(*(SceUID *)(0x09FF0000)); /* 'threadmain'              */
+  sceKernelSuspendThread(*(SceUID *)(0x09FEF000)); /* 'SysManager'              */
+  sceKernelSuspendThread(*(SceUID *)(0x09FD6800)); /* 'ResourceManager'         */
+  sceKernelSuspendThread(*(SceUID *)(0x09FD6400)); /* 'overlayloader'           */
+  sceKernelSuspendThread(*(SceUID *)(0x09FD5C00)); /* 'sfx bank loading thread' */
+  sceKernelSuspendThread(*(SceUID *)(0x09FE7000)); /* 'mix sound thread'        */
   return;
 }
 
@@ -333,19 +333,10 @@ void suspend_ctw_threads(void)
  */
 int main_thread(SceSize args, void* argp)
 {
-  void *gameinfo;
-  SceUID fd;
-  SceSize filesize;
-  SceUID blockid;
-  void *blockaddr;
-  int uVar2;
-  int uVar3;
-  int uVar4;
-  int *puVar5;
-  int *custom_code_arr_ptr;
+  int* inject_code_ptr;
   int filebyte_counter;
-  char *vehicle_name;
-  char *vehicle_type;
+  char* vehicle_name;
+  char* vehicle_type;
   int counter_types;
   int counter_names;
 
@@ -356,34 +347,34 @@ int main_thread(SceSize args, void* argp)
   }
 
   /* REV: What struct does this function even return? Title ID surely must be at offset 0x44... */
-  gameinfo = sceKernelGetGameInfo();
+  void* gameinfo = sceKernelGetGameInfo();
   strcpy(ctw_titleid, (char*)(gameinfo + 0x44));
 
   /* REV: Clear garbage from array... */
-  memset(custom_code_arr, 0, 0x80);
-  custom_code_arr_ptr = &custom_code_arr[0];
+  memset(inject_code, 0, 0x80);
+  inject_code_ptr = &inject_code[0];
 
   /* REV: Write instructions to code array. */
-  custom_code_arr[6]     = 0x105f0007;
-  custom_code_arr[2]     = 0x105f000b;
-  custom_code_arr[0xc]   = 0x10000003;
-  custom_code_arr[0xe]   = 0x3c020880;
-  custom_code_arr[0x11]  = 0x00a08821;
-  custom_code_arr[10]    = 0x105f0003;
-  custom_code_arr[0xf]   = 0x8c450f00;
+  inject_code[6]  = 0x105f0007;
+  inject_code[2]  = 0x105f000b;
+  inject_code[12] = 0x10000003;
+  inject_code[14] = 0x3c020880;
+  inject_code[17] = 0x00a08821;
+  inject_code[10] = 0x105f0003;
+  inject_code[15] = 0x8c450f00;
 
   /* 
    * REV: Check Game Version (EU or US)
-   *      Also there's references to some addresses in RAM...
-   *      What are these even setting?
+   *      For each version, the plugin injects different code.
+   *      TODO: Find out what it is and what it does...
    */
 
   if ( !strcmp(ctw_titleid, "ULES01347") ) {
     *(int *)(0x08a43504)    = 0x0a200400;
-    custom_code_arr[5]      = 0x34428c14;
-    custom_code_arr[1]      = 0x3442dbd8;
-    custom_code_arr[9]      = 0x34429c44;
-    custom_code_arr[0x10]   = 0x0a290d43;
+    inject_code[5]          = 0x34428c14;
+    inject_code[1]          = 0x3442dbd8;
+    inject_code[9]          = 0x34429c44;
+    inject_code[16]         = 0x0a290d43;
     PTR_00001cc4            = (int *)(0x08a43504);
   }
   else {
@@ -393,46 +384,43 @@ int main_thread(SceSize args, void* argp)
     }
 
     *(int *)(0x08a43450)    = 0x0a200400;
-    custom_code_arr[5]      = 0x34428b14;
-    custom_code_arr[1]      = 0x3442db24;
-    custom_code_arr[9]      = 0x34429b44;
-    custom_code_arr[0x10]   = 0x0a290d16;
+    inject_code[5]          = 0x34428b14;
+    inject_code[1]          = 0x3442db24;
+    inject_code[9]          = 0x34429b44;
+    inject_code[16]         = 0x0a290d16;
     PTR_00001cc4            = (int *)(0x08a43450);
   }
-  custom_code_arr[8] = 0x3c0208b8;
-  custom_code_arr[4] = 0x3c0208b8;
-  custom_code_arr[0] = 0x3c0208a1;
+  inject_code[8] = 0x3c0208b8;
+  inject_code[4] = 0x3c0208b8;
+  inject_code[0] = 0x3c0208a1;
 
   /* 
    * REV: Copy array_data to 0x08801000, it must patch some function? 
-   *      because the user_main thread is not created anymore (preventing it from crashing)...
+   *      because the 'user_main' thread is not created anymore (preventing it from crashing)...
    */
-  puVar5 = (int *)(0x08801000);
-  do {
-    uVar2     = custom_code_arr_ptr[1];
-    uVar3     = custom_code_arr_ptr[2];
-    uVar4     = custom_code_arr_ptr[3];
-    *puVar5   = *custom_code_arr_ptr;
-    puVar5[1] = uVar2;
-    puVar5[2] = uVar3;
-    custom_code_arr_ptr += 4;
-    puVar5[3] = uVar4;
-    puVar5    += 4;
-  } while (custom_code_arr_ptr != &custom_code_arr[0x80]);
+  int* mem_code_ptr = (int *)(0x08801000);
+
+  for (; inject_code_ptr < &inject_code[128]; inject_code_ptr+=4, mem_code_ptr+=4)
+  {
+    mem_code_ptr[0] = inject_code_ptr[0];
+    mem_code_ptr[1] = inject_code_ptr[1];
+    mem_code_ptr[2] = inject_code_ptr[2];
+    mem_code_ptr[3] = inject_code_ptr[3];
+  }
 
   /* REV: Clear Cache so that the change to mem above actually works...*/
   ClearCaches();
 
   /* REV: Read ctwvehicles.txt */
-  fd = sceIoOpen("ms0:/seplugins/ctw/ctwvehicles.txt", PSP_O_RDONLY, 511);
+  SceUID fd = sceIoOpen("ms0:/seplugins/ctw/ctwvehicles.txt", PSP_O_RDONLY, 511);
 
   /* REV: Get File Size to alloc partition */
-  filesize = sceIoLseek32(fd, 0, SEEK_END);
+  SceSize filesize = sceIoLseek32(fd, 0, SEEK_END);
   sceIoLseek(fd, 0, SEEK_SET);
 
-  blockid = sceKernelAllocPartitionMemory(PSP_MEMORY_PARTITION_KERNEL,"block",PSP_SMEM_Low,filesize,NULL);
+  SceUID blockid = sceKernelAllocPartitionMemory(PSP_MEMORY_PARTITION_KERNEL, "block", PSP_SMEM_Low, filesize, NULL);
 
-  blockaddr = sceKernelGetBlockHeadAddr(blockid);
+  void* blockaddr = sceKernelGetBlockHeadAddr(blockid);
   sceIoRead(fd,blockaddr,filesize);
   sceIoClose(fd);
 
@@ -448,8 +436,7 @@ int main_thread(SceSize args, void* argp)
 
   /* 
    * REV: Read Data From Partition 
-   *      The compiler made a mess here
-   *      And Ghidra can't help of course
+   *      TODO: Clean Ghidra's output here (remove gotos)
    */
   if (filesize > 0) {
 
@@ -459,7 +446,7 @@ int main_thread(SceSize args, void* argp)
 
     do {
       while( 1 ) {
-        filebyte_counter = filebyte_counter + 1;
+        filebyte_counter++;
 
         if ( strncmp(blockaddr, "#name", 5) ) break;
 
@@ -501,7 +488,8 @@ LAB_00000514:
   counter_types = 1;
 
   /* REV: Main Loop */
-  do {
+  while( 1 ) 
+  {
     sceCtrlReadBufferPositive(&pad, 1);
     if ( !menu_displaying ) {
       if ((pad.Buttons & (PSP_CTRL_LTRIGGER | PSP_CTRL_UP)) == (PSP_CTRL_LTRIGGER | PSP_CTRL_UP)) {
@@ -513,7 +501,9 @@ LAB_00000514:
     }
     else {
       L_up_time_pressed = 0;
-      do {
+
+      /* REV: Menu Loop */
+      while (menu_displaying) {
         sceCtrlReadBufferPositive(&pad, 1);
         psp_printf(0, 0, "Grand Theft Auto: Chinatown Wars\nCheat Device Menu", 0xff0000);
 
@@ -552,7 +542,9 @@ LAB_00000514:
                   if ((pad.Buttons & PSP_CTRL_START) != 0) {
                     ClearFrameBuf(0x000000);
 
-                    /* REV: What does this even do? */
+                    /* REV: It's injecting code somewhere (depends on game region) 
+                     * TODO: Find out what it is doing
+                    */
                     if (cheat_state) {
                       cheat_state = 0;
                       **(int **)(&PTR_00001cc4) = 0xa08825;
@@ -597,15 +589,17 @@ LAB_00000848:
         }
         else {
           /* REV: Close Menu */
-          do {
+
+          /* REV: If you keep pressing start, menu won't close. */
+          while ((pad.Buttons & PSP_CTRL_SELECT) != 0) {
             sceCtrlReadBufferPositive(&pad, 1);
-          } while ((pad.Buttons & PSP_CTRL_SELECT) != 0);
+          } 
           menu_displaying = 0;
           resume_ctw_threads();
         }
 LAB_000005e4:
         old_buttons = pad.Buttons;
-      } while (menu_displaying);
+      }
     }
     if (L_up_time_pressed < 101) {
       sceKernelDelayThread(100);
@@ -615,8 +609,9 @@ LAB_000005e4:
         return 0;
       }
     }
-    /* REV: Open Menu */
     else {
+      /* REV: Open Menu */
+
       suspend_ctw_threads();
       sceKernelDelayThread(250000);
       sceDisplaySetFrameBuf((void *)(VRAM), 0x200, PSP_DISPLAY_PIXEL_FORMAT_8888, PSP_DISPLAY_SETBUF_NEXTFRAME);
@@ -634,7 +629,7 @@ LAB_000005e4:
         return 0;
       }
     }
-  } while( 1 );
+  }
 }
 
 /*

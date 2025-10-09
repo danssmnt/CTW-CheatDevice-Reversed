@@ -3,9 +3,7 @@
 
 #include <pspkernel.h>
 
-/*
- * Taken from https://github.com/qwikrazor87/PS1-Undoc/blob/master/src/sctrl.h.
-*/
+/* REV: Taken from https://github.com/qwikrazor87/PS1-Undoc/blob/master/src/sctrl.h. */
 typedef struct SceModule2
 {
 	struct SceModule2*   next; //0, 0x00

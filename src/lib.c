@@ -64,7 +64,8 @@ joined_r0x00000b40:
   curr_char = eos_ptr[-1];
   *eos_ptr = '\0';
   eos_ptr = eos_ptr + -1;
-  do {
+
+  while( 1 ) {
     if (curr_char == '\n') {
       return last_valid_char_ptr;
     }
@@ -85,7 +86,7 @@ joined_r0x00000b40:
     }
     eos_ptr = eos_ptr + -1;
     curr_char = *eos_ptr;
-  } while( 1 );
+  };
 }
 
 /*
@@ -116,7 +117,7 @@ SceModule2* FindModuleByName(const char* module)
 /*
  * FUN_00000C5C
  * REV: Unknown? Doesn't seem to match any known qwikrazor87 made function.
- *      Doesn't help that the output is this shit, thanks Ghidra...
+ *      Doesn't help that the output is this shit, thanks Ghidra!
  *
  *      Those comparisons adding 0xf7c00000U and 0x78000000U are for checking if address is valid
  *      Wonder if that UNUSED_00000AB8_AddressInRange func was inlined by the compiler...
@@ -194,7 +195,7 @@ void ClearFrameBuf(u32 color)
 
 /*
  * FUN_00000E18
- * REV: Print to screen (almost like pspDebugScreenPrintf)
+ * REV: Print to screen (almost like a custom pspDebugScreenPrintf)
  */
 void psp_printf(int x, int y, char* string, u32 color)
 {
